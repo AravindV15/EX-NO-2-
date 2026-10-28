@@ -29,82 +29,160 @@ STEP-5: Display the obtained cipher text.
 
 ## Program:
 
-```C
+
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 
-char t[5][5]; int u[26];
+#define SIZE 100
 
-void table(char k[]){
-    int i,r=0,c=0;
-    for(i=0;k[i];i++){
-        char ch=tolower(k[i]);
-        if(ch=='j') ch='i';
-        if(ch>='a'&&ch<='z'&&!u[ch-'a']){
-            u[ch-'a']=1; t[r][c++]=ch;
-            if(c==5) r++,c=0;
+void cleanText(char str[]) {
+    int i, j = 0;
+
+    for (i = 0; str[i]; i++) {
+        if (isalpha((unsigned char)str[i])) {
+            str[j++] = tolower((unsigned char)str[i]);
         }
     }
-    for(char ch='a';ch<='z';ch++){
-        if(ch=='j'||u[ch-'a']) continue;
-        t[r][c++]=ch;
-        if(c==5) r++,c=0;
+    str[j] = '\0';
+}
+
+void generateKeyTable(char key[], char table[5][5]) {
+    int used[26] = {0};
+    int row = 0, col = 0;
+
+    used['j' - 'a'] = 1;
+
+    for (int i = 0; key[i]; i++) {
+        char ch = key[i];
+
+        if (ch == 'j')
+            ch = 'i';
+
+        if (!used[ch - 'a']) {
+            table[row][col++] = ch;
+            used[ch - 'a'] = 1;
+
+            if (col == 5) {
+                col = 0;
+                row++;
+            }
+        }
+    }
+
+    for (char ch = 'a'; ch <= 'z'; ch++) {
+        if (!used[ch - 'a']) {
+            table[row][col++] = ch;
+
+            if (col == 5) {
+                col = 0;
+                row++;
+            }
+        }
     }
 }
 
-void pos(char ch,int *r,int *c){
-    if(ch=='j') ch='i';
-    for(int i=0;i<5;i++)
-        for(int j=0;j<5;j++)
-            if(t[i][j]==ch){*r=i;*c=j;}
-}
+void prepareText(char plain[]) {
+    char temp[SIZE];
+    int i = 0, j = 0;
 
-void enc(char p[],char c[]){
-    int i,r1,c1,r2,c2,k=0;
-    for(i=0;p[i]&&p[i+1];i+=2){
-        pos(p[i],&r1,&c1); pos(p[i+1],&r2,&c2);
-        if(r1==r2){
-            c[k++]=t[r1][(c1+1)%5];
-            c[k++]=t[r2][(c2+1)%5];
-        } else if(c1==c2){
-            c[k++]=t[(r1+1)%5][c1];
-            c[k++]=t[(r2+1)%5][c2];
+    while (plain[i] && j < SIZE - 2) {
+        char a = plain[i];
+        char b = plain[i + 1];
+
+        temp[j++] = a;
+
+        if (b == '\0') {
+            temp[j++] = (a == 'x') ? 'q' : 'x';
+            i++;
+        } else if (a == b) {
+            temp[j++] = (a == 'x') ? 'q' : 'x';
+            i++;
         } else {
-            c[k++]=t[r1][c2];
-            c[k++]=t[r2][c1];
+            temp[j++] = b;
+            i += 2;
         }
     }
-    c[k]=0;
+
+    temp[j] = '\0';
+    strcpy(plain, temp);
 }
 
-int main(){
-    char p[50],k[50],c[50];
+void search(char table[5][5], char a, char b, int pos[]) {
+    if (a == 'j') a = 'i';
+    if (b == 'j') b = 'i';
 
-    printf("Enter Plain Text: ");
-    fgets(p,50,stdin);
+    for (int i = 0; i < 5; i++) {
+        for (int j = 0; j < 5; j++) {
+            if (table[i][j] == a) {
+                pos[0] = i;
+                pos[1] = j;
+            }
+            if (table[i][j] == b) {
+                pos[2] = i;
+                pos[3] = j;
+            }
+        }
+    }
+}
+
+void encrypt(char plain[], char table[5][5]) {
+    int pos[4];
+
+    for (int i = 0; plain[i] && plain[i + 1]; i += 2) {
+        search(table, plain[i], plain[i + 1], pos);
+
+        if (pos[0] == pos[2]) {
+            plain[i] = table[pos[0]][(pos[1] + 1) % 5];
+            plain[i + 1] = table[pos[2]][(pos[3] + 1) % 5];
+        } else if (pos[1] == pos[3]) {
+            plain[i] = table[(pos[0] + 1) % 5][pos[1]];
+            plain[i + 1] = table[(pos[2] + 1) % 5][pos[3]];
+        } else {
+            char c1 = table[pos[0]][pos[3]];
+            char c2 = table[pos[2]][pos[1]];
+
+            plain[i] = c1;
+            plain[i + 1] = c2;
+        }
+    }
+}
+
+int main() {
+    char key[SIZE], plain[SIZE];
+    char table[5][5];
 
     printf("Enter Key: ");
-    fgets(k,50,stdin);
+    fgets(key, SIZE, stdin);
+    key[strcspn(key, "\n")] = '\0';
 
-    for(int i=0;p[i];i++)
-        if(p[i]!=' ') p[i]=tolower(p[i]);
+    printf("Enter Plaintext: ");
+    fgets(plain, SIZE, stdin);
+    plain[strcspn(plain, "\n")] = '\0';
 
-    table(k); enc(p,c);
+    cleanText(key);
+    cleanText(plain);
 
-    printf("\nPlain Text : %s",p);
-    printf("Key : %s",k);
+    prepareText(plain);
+    generateKeyTable(key, table);
 
-    printf("\nKey Table:\n");
-    for(int i=0;i<5;i++){
-        for(int j=0;j<5;j++)
-            printf("%c ",t[i][j]);
+    printf("\nKey       : %s\n", key);
+    printf("Plaintext : %s\n", plain);
+
+    printf("\nKey Matrix:\n");
+    for (int i = 0; i < 5; i++) {
+        for (int j = 0; j < 5; j++)
+            printf("%c ", table[i][j]);
         printf("\n");
     }
 
-    printf("\nEncrypted Text : %s",c);
+    encrypt(plain, table);
+
+    printf("\nCiphertext: %s\n", plain);
+
+    return 0;
 }
-```
+
 
 
 
